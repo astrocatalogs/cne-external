@@ -1,0 +1,42 @@
+Instructions for Creating Directories, Tickets, and Datafiles:
+
+1. In the Individual Novae directory, run the MakeNewNovaDirectory.py script by typing "python3 MakeNewNovaDirectory <nova name>". The nova name should be one of three forms:
+	a. <single capital letter>_<three letter constellation abbreviation>
+	b. <two capital letters>_<three letter constellation abbreviation>
+	c. V<three or four numbers>_<three letter constellation abbreviation>
+This should create  a new directory within the Individual Novae Directory, as well as put blank readme files in any directories, so they appear on github.
+
+2. Once a directory has been made for a nova, then tickets can be made. The ticketCreator.py script is located in the Scripts directory. Type "python3 ticketCreator.py" to open the dialogue. The first question will be whether this ticket is for photometry or spectroscopy. For photometry, type "p", and for spectroscopy, type "s".
+
+3. Below are the rules for filling out a ticket:
+	OBJECT NAME: Follows the same rules as naming directories. In fact this name must be exactly the same as the directory name in order for the softlinks script to work.
+	TIME UNITS: This is the unit of the time axis/column on graphs and tables. Type the units in all lowercase letters, and this will almost always be "days".
+	FLUX UNITS: This is the unit of the flux measurements of the novae. For standard magnitudes, type in "mags".
+	FLUX ERROR UNITS: Same rules as flux units.
+	FILTER SYSTEM: This will be either "Johnson-Cousins" or "Sloan"
+	MAGNITUDE SYSTEM: This will be either "Vega" or "AB"
+	WAVELENGTH REGIME: Options are "radio", "infrared", "optical", "ultraviolet", and "x-ray".
+	TIME SYSTEM: Can either be "JD" for Julian Date, "UT" for Universal Time, or "DPO" for Days Past Outburst.
+	ASSUMED DATE OF OUTBURST: Only include this if the time system field is Days Past Outburst. This must be enetered in Julian Date, not Universal Time or other time systems. Otherwise, type "NA".
+	TELESCOPE: Full name of the telescope, capitalizing the first letter of words. If the data is a compilation from multiple telescopes, then enter "NA".
+	OBSERVER: Name of the observer with last name first, followed by a comma, a space, and then first name. Example: "Smith, Bob"
+	REFERENCE: This must be exactly as it appears on websites like ADS. The lead author's last name should always be at the front.
+	BIBCODE: This must be exactly as it appears on websites like ADS.
+	DATA FILENAME: This is the name of the datafile that contains data for this particular ticket. This must match exactly for the softlinks script to work. If the data file does not exist yet, leave this field blank.
+	TIME COLUMN NUMBER: Positive integer (first column in a table is column zero). If not available, type "NA".
+	FLUX COLUMN NUMBER: Positive integer (first column in a table is column zero). If not available, type "NA".
+	FLUX ERROR COLUMN NUMBER: Positive integer (first column in a table is column zero). If not available, type "NA".
+	FILTER/FREQUENCY/ENERGY RANGE COLUMN NUMBER: Positive integer (first column in a table is column zero). If not available, type "NA".
+	UPPER LIMIT FLAG COLUMN NUMBER: Positive integer (first column in a table is column zero). If not available, type "NA".
+	TELESCOPE COLUMN NUMBER: Positive integer (first column in a table is column zero). If not available, type "NA".
+	OBSERVER COLUMN NUMBER: Positive integer (first column in a table is column zero). If not available, type "NA".
+	FILTER SYSTEM COLUMN NUMBER: Positive integer (first column in a table is column zero). If not available, type "NA".
+	TICKET STATUS: For pending tickets, type "pending", which can also be followed by a comma and a note. For completed tickets, type "completed", with no comment.
+
+4. If a particular field is not known at the time of creating a ticket, but is expected to be known in the future, then leave it blank. However, please note that only pending tickets can have blank fields. A completed ticket must either have the field filled out or have it marked as "NA".
+
+5. Now that a ticket has been created (or while you are filling out a ticket), the data file must be formatted and saved. All data files must either be a .txt or .csv file in order to work with our scripts. The data files must, at a minimum, have date, flux, filter/frequency/enery range, and filter system. Save the data file in ONC/IndividualNovae/<Nova Name>/Data/<Wavelength Regime>. See instruction #6 for specifics on AAVSO data, otherwise skip to #7.
+
+6. Go to the AAVSO website and request the data for the nova in ascii format. Select all the data, then copy and paste it into GEDIT, removing the headers. Save this as a .csv file with a name like <Nova Name>_AAVSO.csv. This data may have unacceptable filters and/or limiting magnitudes. Run the AAVSOData.py script on your own machine to handle these. Once the data file has gone through this script, put it into the data directory of the correct nova. Now, make a completed ticket for the data. 
+	
+7. Once the data file has been saved, softlinks need to be created. In the scripts directory, simply run softlinkTickets.py and the links will be automatically made.
