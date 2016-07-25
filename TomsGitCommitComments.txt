@@ -1,6 +1,0 @@
-git commit -m "Fourth commit;
-
-git commit -m "Fifth commit: added the optical/IR photometry file for V1324 Sco, as well as its ticket, to give an example of what a compeleted ticket looks like. Also decided to ditch the 'Instrument' in the photometry ticket, as instruments usually don't matter in photometry, just spectra."
-
-
-git commit -m "Sixth commit: significant changes to the Procedure doc; added explanation for spectra tickets, included examples of completed tickets for V1324 Sco spectra. Also included the spectra for V1324 Sco in its individual nova data directory. Finally, made the modification that the data directory will have branches based on the wavelength regime and data type (in that order)."
