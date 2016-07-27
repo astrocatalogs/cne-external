@@ -123,7 +123,7 @@ for realNovaName in novaDict:
 	sure = False
 	
 	for fileName in novaDict[realNovaName]:
-		string += ",".join([fileName[0],'0','1','NA','ergs/cm^2/sec',str(fileName[1]),'Williams','CTIO 1 m','2D-Frutti',str(fileName[2]), str(fileName[3]), str(fileName[4])]) + "\n"
+		string += ",".join([fileName[0],'0','1','NA','ergs/cm^2/sec','{:.5f}'.format(fileName[1]),'Williams','CTIO 1 m','2D-Frutti',str(fileName[2]), str(fileName[3]), str(fileName[4])]) + "\n"
 	string = string[:-1]
 	
 	metadataFilename = "%s_%s_%s_%s_MetaData.csv" %(realNovaName, author, regime, "Spectra")
