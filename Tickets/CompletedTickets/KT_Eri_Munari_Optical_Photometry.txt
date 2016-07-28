@@ -1,1 +1,1 @@
-../../Individual_Novae/V3890_Sgr/Tickets/CompletedTickets/KT_Eri_Munari_Optical_Photometry.txt
+../../Individual_Novae/KT_Eri/Tickets/CompletedTickets/KT_Eri_Munari_Optical_Photometry.txt

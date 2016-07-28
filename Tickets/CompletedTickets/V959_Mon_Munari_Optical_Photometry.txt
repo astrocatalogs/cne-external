@@ -1,1 +1,1 @@
-../../Individual_Novae/V3890_Sgr/Tickets/CompletedTickets/V959_Mon_Munari_Optical_Photometry.txt
+../../Individual_Novae/V959_Mon/Tickets/CompletedTickets/V959_Mon_Munari_Optical_Photometry.txt
