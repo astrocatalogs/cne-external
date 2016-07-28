@@ -12,7 +12,8 @@ for directory in os.listdir("../Individual_Novae"):
 		for i in range(len(aliases)):
 			string += aliases[i][0].decode() + "\n"
 		string = string[:-1]
-
+		
+		
 		aliasFile = open("../Individual_Novae/" + directory + "/aliases.txt", "w")
 		aliasFile.write(string)
 		aliasFile.close()

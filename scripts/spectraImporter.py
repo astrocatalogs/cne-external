@@ -3,6 +3,7 @@ import os.path
 import re
 from astropy.io import fits
 from astropy.time import Time
+from tqdm import tqdm
 
 directory = "Spectra"
 
@@ -10,6 +11,16 @@ author = "Williams"
 dataType = "Spectra"
 regime = "Optical"
 
+def get_dec_digits(float_num):
+	eps = 10.0 ** -10
+	i = 0
+	while True:
+		ans = float_num / (10.0 ** i)
+		ans = int(ans + 0.5) - ans 
+		print(ans)
+		if ans < eps and ans > -eps:
+			return -i
+		i -= 1
 
 def getNovaName(filePrefix):
 	return filePrefix[:-1]
@@ -45,7 +56,7 @@ metadataFields = ['FILENAME', 'WAVELENGTH COL NUM', 'FLUX COL NUM', 'FLUX ERR CO
 
 ticketDataFields = ["OBJECT NAME: ", "FLUX UNITS: ", "FLUX ERROR UNITS: ", "WAVELENGTH REGIME: ", "TIME SYSTEM: ", "ASSUMED DATE OF OUTBURST: ", "REFERENCE: ", "BIBCODE: ", "DEREDDENED FLAG: ", "METADATA FILENAME: ", "FILENAME COLUMN: ", "WAVELENGTH COLUMN: ", "FLUX COLUMN: ", "FLUX ERROR COLUMN: ", "FLUX UNITS COLUMN: ", "DATE COLUMN: ", "TELESCOPE COLUMN: ", "INSTRUMENT COLUMN: ", "OBSERVER COLUMN: ", "SNR COLUMN: ", "DISPERSION COLUMN: ", "RESOLUTION COLUMN: ", "WAVELENGTH RANGE COLUMN: ", "TICKET STATUS: "]
 
-for filename in os.listdir(directory):
+for filename in tqdm(os.listdir(directory), desc='Processing Spectra'):
 	if re.search(".fits?$", filename, re.IGNORECASE):
 		if filename.lower().startswith("lmc"):
 			continue
@@ -86,11 +97,11 @@ for filename in os.listdir(directory):
 			
 		for i in range(header["NAXIS1"]):			
 			wavelength = header["CRVAL1"] + (header["CRPIX1"] - 1 + i) * header["CDELT1"]
-			string += "%s,%s\n" %("{:.6f}".format(wavelength),data[i]) 
+			string += "%s,%s\n" %("{:.5f}".format(wavelength),"{:.5}".format(data[i])) 
 		
 		outputFile = "%s_%s_%s_%s.csv" %(filePrefix, author, regime, dataType)
 
-		wl0, wln = wavelength = str(header["CRVAL1"] + (header["CRPIX1"] - 1) * header["CDELT1"]), str(header["CRVAL1"] + (header["CRPIX1"] - 2 + header["NAXIS1"]) * header["CDELT1"])
+		wl0, wln = wavelength = '{:.5f}'.format(header["CRVAL1"] + (header["CRPIX1"] - 1) * header["CDELT1"]), '{:.5f}'.format(header["CRVAL1"] + (header["CRPIX1"] - 2 + header["NAXIS1"]) * header["CDELT1"])
 		disp = header["CDELT1"]
 		
 		realNovaName = ""
@@ -107,9 +118,9 @@ for filename in os.listdir(directory):
 			os.system("python3 MakeNewNovaDirectory.py " + realNovaName)
 
 		if realNovaName not in novaDict:
-			novaDict[realNovaName] = [(outputFile, date, disp, wl0, wln)]
+			novaDict[realNovaName] = [(outputFile, '{:.6}'.format(date), disp, wl0, wln)]
 		else:
-			novaDict[realNovaName].append((outputFile, date, disp, wl0, wln))	
+			novaDict[realNovaName].append((outputFile, '{:.6}'.format(date), disp, wl0, wln))	
 
 		string = string[:-1]
 		csvFile = open("../Individual_Novae/" + realNovaName + "/Data/" + outputFile, "w")
@@ -123,7 +134,7 @@ for realNovaName in novaDict:
 	sure = False
 	
 	for fileName in novaDict[realNovaName]:
-		string += ",".join([fileName[0],'0','1','NA','ergs/cm^2/sec','{:.5f}'.format(fileName[1]),'Williams','CTIO 1 m','2D-Frutti',str(fileName[2]), str(fileName[3]), str(fileName[4])]) + "\n"
+		string += ",".join([fileName[0],'0','1','NA','ergs/cm^2/sec',str(fileName[1]),'Williams','CTIO 1 m','2D-Frutti',str(fileName[2]), str(fileName[3]), str(fileName[4])]) + "\n"
 	string = string[:-1]
 	
 	metadataFilename = "%s_%s_%s_%s_MetaData.csv" %(realNovaName, author, regime, "Spectra")
@@ -131,7 +142,7 @@ for realNovaName in novaDict:
 	metadataFile.write(string)
 	metadataFile.close()
 
-	ticketFields = [realNovaName, "NA", "NA", regime, "JD", "NA", "Williams, R. et al. (1991)", "NA", "False", metadataFilename, "0", "1", "2", "3", "4", "5", "7", "8", "6", "NA", "9", "NA", "10,11", "Completed"]
+	ticketFields = [realNovaName, "NA", "NA", regime, "JD", "NA", "Williams et al. (1992)", "1992AJ....104..725W", "False", metadataFilename, "0", "1", "2", "3", "4", "5", "7", "8", "6", "NA", "9", "NA", "10,11", "Completed"]
 	
 	ticketText = ""
 	for i in range(len(ticketDataFields)):

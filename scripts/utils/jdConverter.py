@@ -1,6 +1,18 @@
 import re
 
-def convertJd(contentsList, increase=2400000, **kwargs):
+
+__all__ = ['convert_jd']
+
+def get_dec_digits(string):
+	
+	for i in range(len(string)):
+		if string[i] == '.':
+			return len(string) - i - 1
+
+	return 0
+
+def convert_jd(contentsList, increase=2450000, **kwargs):
+	
 	"""Inputs a list of list of file contents, adds increase to JD column """
 	manual = False if increase >= 2400000 and increase <= 2500000 else True
 	
@@ -28,15 +40,15 @@ def convertJd(contentsList, increase=2400000, **kwargs):
 	if index == -1:
 		raise ValueError("Could not find JD column.")
 		return contentsList
-	print(index)
+	
 	longJd = increase
 	for i in range(len(contentsList)):
 		if contentsList[i][0].strip().startswith("#"):
 			continue
 		try:
+			digits = get_dec_digits(contentList[i][index])
 			mjd = float(contentsList[i][index].strip())
 		except IndexError:
-			print(contentsList[i])
 			continue
 
 		if digits(mjd) >= 4:
@@ -53,20 +65,10 @@ def convertJd(contentsList, increase=2400000, **kwargs):
 			else:
 				mjd += increase
 
-		contentsList[i][index] = "{:.6f}".format(mjd)
+		
+		contentsList[i][index] = "{:.f}".format(mjd)
 			
 	return contentsList
-
-myFile = open("document-3.csv", "r")
-contents = myFile.read()
-
-contents = contents.split("\n")
-contents = [line.split(",") for line in contents]
-myFile.close()
-while contents[-1] == ['']:
-	contents = contents[:-1]
-
-print(convertJd(contents, increase=2440000))
 
 
 
