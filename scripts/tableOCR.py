@@ -10,6 +10,8 @@ from threading import Thread
 from asyncio import Queue
 import argparse
 
+__density = 500
+
 
 defaultPdfList = []
 #enter pdfs here or use one of below methods (input prompt or command line argument)
@@ -91,8 +93,172 @@ def findPages(string):
 				raise AttributeError("Incorrectly formatted page range.")
 	return pageSet
 
+def convert_jd(contentsList, increase=2450000, **kwargs):
+	"""Inputs a list of list of file contents, adds increase to JD column """
+	manual = False if increase >= 2400000 and increase <= 2500000 else True
 	
-def convertPdf(pdf, density=900):
+	zeros = len(str(increase)) - re.search(r"0*$", str(increase)).start()
+		
+	def digits(x):
+		i = 0
+		while True:
+			if int(x) // (10 ** i) == 0:
+				return i
+			else:
+				i += 1
+	
+	index = -1
+	if "jdCol" in kwargs:
+		index = kwargs[jdCol]
+	else:
+		for line in contentsList:
+			for i in range(len(line)):
+				if re.search(r"(jd)|(julian)|(date)",line[i], re.IGNORECASE):
+					index = i
+					break
+			if index != -1:
+				break
+	if index == -1:
+		raise ValueError("Could not find JD column.")
+		return contentsList
+	
+	longJd = increase
+	for i in range(len(contentsList)):
+		if contentsList[i][0].strip().startswith("#"):
+			continue
+		try:
+			dec_digits = str(get_dec_digits(contentsList[i][index]))
+			mjd = float(contentsList[i][index].strip())
+		except (ValueError, IndexError):
+			continue
+
+		if digits(mjd) >= 4:
+			if digits(mjd) == 4: mjd += increase
+			elif digits(mjd) == 5 and not manual: mjd += 2400000
+			elif digits(mjd) == 5 and manual: mjd += increase
+			elif digits(mjd) == 6: mjd += 2000000
+			longJd = mjd
+		else:
+			mjdDigits = digits(mjd)
+			if zeros > mjdDigits:	
+				power = 10 ** mjdDigits
+				mjd += (longJd // power) * power
+			else:
+				mjd += increase
+
+		
+		contentsList[i][index] = ("{:.%sf}" %(dec_digits)).format(mjd)
+			
+	return contentsList
+
+def get_dec_digits(string):
+	
+	for i in range(len(string)):
+		if string[i] == '.':
+			return len(string) - i - 1
+
+	return 0
+
+def convert_line_bands(line, titles):
+	bands = r'UBVRI'
+	mag_dict = {}
+	error_dict, error = {}, False
+	
+	col_set = set([])
+	for i, title in enumerate(titles):
+		title = title.upper().replace('_', '').replace(' ', '')
+		for band in bands:
+			if re.match(r'%sC?MAG' %(band), title):
+				x = re.search(r'MAG', title).start()
+				mag_dict[title[:x]] = line[i].strip()
+				col_set.add(i)
+				for (j,t) in enumerate(titles):
+					t = t.upper()
+					if re.match(r'E_?%sC?MAG' %(band), t):
+						error = True
+						x = re.search(r'MAG', t.replace("_", '')).start()
+						error_dict[t.replace("_", '')[1:x]] = line[j].strip()
+						col_set.add(j)
+
+
+	for i, title in enumerate(titles):
+		title = title.upper().replace(" ", "")
+		
+		if re.match(r'[%s]C?[\-_][%s]C?$' %(bands, bands), title):
+			x = re.search(r'[\-_][%s]' %(bands), title).start()
+			band1 = title[:x]
+			band2 = title[x+1:]
+			try:
+				subtrahend = mag_dict[title[x + 1:]]
+				band = title[:x]
+				not_band = title[x+1:]
+			except KeyError:
+				subtrahend = mag_dict[title[:x]]
+				band = title[x+1:]
+				not_band = title[:x]
+				
+			minuend = line[i].strip()
+			
+			decs1 = get_dec_digits(minuend)
+			decs2 = get_dec_digits(subtrahend)
+			decs = decs1 if decs1 > decs2 else decs2
+			if not title[0:x] in mag_dict:
+				try: mag_dict[title[0:x]] = ('{:.%df}' %(decs)).format(float(subtrahend) + float(minuend))
+				except ValueError: mag_dict[title[0:x]] = minuend
+			elif not title[x+1] in mag_dict:
+				try: mag_dict[title[x+1:]] = ('{:.%df}' %(decs)).format(float(subtrahend) - float(minuend))
+				except ValueError: mag_dict[title[x+1:]] = minuend
+		
+			col_set.add(i)
+			
+			for (j,t) in enumerate(titles):
+				t = t.upper()
+				if re.match(r'E_?[%s]C?[\-_][%s]C?$' %(band1, band2), t):
+					error = True
+					try:
+						if not_band in error_dict and float(error_dict[not_band]) > float(line[j].strip()):
+							error_dict[band] = error_dict[not_band]
+						else:
+							error_dict[band] = line[j].strip()
+					except (ValueError, KeyError):
+						error_dict[band] = line[j].strip()
+					col_set.add(j)
+	
+	if len(col_set) > 0:
+		line_list = []
+		for band in mag_dict:
+			new_line = []
+			for i in range(len(line)):
+				if not i in col_set:
+					new_line.append(line[i])
+
+			new_line.append(mag_dict[band])
+			if error:
+				try:
+					new_line.append(error_dict[band])
+				except KeyError:
+					new_line.append('--')
+			new_line.append(band)
+
+			line_list.append(new_line)
+	else:
+		line_list = [line]
+	
+	new_titles = []
+	for i in range(len(titles)):
+		if not i in col_set: new_titles.append(titles[i])
+	if len(col_set) > 0:
+		new_titles.append('Mag')
+		if error:
+			new_titles.append('e_Mag')
+		new_titles.append('Band')
+		
+
+	return (line_list, new_titles)
+
+
+	
+def convertPdf(pdf, density=__density):
 	global auto
 	try:
 		sufIndex = re.search(r".pdf((\[[\d,\-]+\]$)|$)",pdf).start()
@@ -163,7 +329,7 @@ def convertPdfs(pdfList, threads=4):
 			for pdfName in pdfTuple:
 				convertPdf(pdfName)
 
-def get_hlines(pix, w, h, color="black", H_THRESH = 1000, black_thickness = 0):
+def get_hlines(pix, w, h, color="black", H_THRESH = __density, black_thickness = 0):
 	"""Finds horizontal lines, returns list of Line objects"""
 	pixMatch = 0
 	color = color.lower()
@@ -234,7 +400,7 @@ def get_hlines(pix, w, h, color="black", H_THRESH = 1000, black_thickness = 0):
 	
 	return lineList
 
-def get_vlines(pix, w, h, color="black", V_THRESH = 1000, black_thickness = 0):
+def get_vlines(pix, w, h, color="black", V_THRESH = __density, black_thickness = 0):
 	"""Finds vertical lines, returns list of Line objects"""	
 	pixMatch = 0
 	color = color.lower()
@@ -348,9 +514,12 @@ def OCR(tabIm, hlines, vlines, imageFile, t=""):
 		print("OCR for row " + str(i))
 		for j in range(len(vlines) - 1):
 			fileName = "%s%s-%s-%s.pbm" %(imageFile[:-4],t,j,i)
-			
-			tabIm.crop((vlines[j].avgx, hlines[i].avgy, vlines[j+1].avgx-1, hlines[i+1].avgy-1)).save(fileName)		
-					
+		
+			try:
+				tabIm.crop((vlines[j].avgx, hlines[i].avgy, vlines[j+1].avgx-1, hlines[i+1].avgy-1)).save(fileName)		
+			except SystemError:
+				tabIm.crop((vlines[j].avgx-1, hlines[i].avgy-1, vlines[j+1].avgx-1, hlines[i+1].avgy-1)).save(fileName)		
+						
 			subprocess.run("tesseract %s %s" %(fileName, fileName[:-4]), shell=True, stdout=devnull, stderr=devnull) 
 				
 			txtFile = open(fileName[:-4] + ".txt", "r")
@@ -361,13 +530,16 @@ def OCR(tabIm, hlines, vlines, imageFile, t=""):
 				txtFile = open(fileName[:-4] + ".txt", "r")
 				contents[i][j] = re.sub(r"_+$", "", txtFile.read().strip().replace(",","_"))
 				txtFile.close()
-			elif re.search("\d+\D*\d+", contents[i][j]):
+			if re.search("\d+\D*\d+", contents[i][j]):
 				contents[i][j] = contents[i][j].replace("?", "7").replace("'", "")
+				if re.match(r"[\d. ]+$", contents[i][j]):
+					contents[i][j] = contents[i][j].replace(' ', '')
 				#if not re.match(r"-?\d+\.?\d+"):
 				#	subprocess.run("gocr -o %s.txt %s" %(fileName[:-4], fileName), shell=True)
 				#	txtFile = open(fileName[:-4] + ".txt", "r")
 				#	temp = re.sub(r"_+$", "", txtFile.read().strip().replace(",","_"))
 				#	txtFile.close()
+			
 	devnull.close()
 			
 	rows = [(",".join(row)).replace("\n", "") for row in contents]
@@ -383,6 +555,7 @@ def OCR(tabIm, hlines, vlines, imageFile, t=""):
 	csvFile = open(imageFile[10:-4] + t + ".csv", "w")
 	csvFile.write(csvText)
 	csvFile.close()
+	return imageFile[10:-4]
 
 
 def processImage(imageFile, autoFind=True):	
@@ -393,7 +566,7 @@ def processImage(imageFile, autoFind=True):
 	
 	if autoFind:
 		table_lines = get_hlines(pix, width, height)
-		tables = findTables(table_lines, width, ROW_THRESH = height // 15)
+		tables = findTables(table_lines, width, ROW_THRESH = height // (__density // 60))
 	
 		max_thickness = 0
 		for hline in table_lines:
@@ -406,16 +579,16 @@ def processImage(imageFile, autoFind=True):
 			tabIm.save("__working/test.pbm")
 			w, h = tabIm.size
 			tabPix = tabIm.load()
-			vlines_black = get_vlines(tabPix, w, h, V_THRESH = h - max_thickness * len(table_lines) - h // 20)
-			vlines_white = get_vlines(tabPix, w, h, color = "white", V_THRESH = h - max_thickness * len(table_lines) - h // 20, black_thickness = max_thickness)
+			vlines_black = get_vlines(tabPix, w, h, V_THRESH = h - max_thickness * len(table_lines) - h // (__density // 45))
+			vlines_white = get_vlines(tabPix, w, h, color = "white", V_THRESH = h - max_thickness * len(table_lines) - h // (__density // 45), black_thickness = max_thickness)
 
 			max_vert_thickness = 0
 			for vline in table_lines:
 				if vline.thickness > max_vert_thickness:
 					max_vert_thickness = hline.thickness
 
-			hlines_white = get_hlines(tabPix, w, h, color = "white", H_THRESH = w - 250, black_thickness = max_vert_thickness)
-			hlines_black = get_hlines(tabPix, w, h, H_THRESH = w - 250)
+			hlines_white = get_hlines(tabPix, w, h, color = "white", H_THRESH = w - int(__density / 3.5), black_thickness = max_vert_thickness)
+			hlines_black = get_hlines(tabPix, w, h, H_THRESH = w - int(__density / 3.5))
 
 			i = 0
 			while i < len(vlines_white):
@@ -459,7 +632,7 @@ def processImage(imageFile, autoFind=True):
 		i = 0
 		
 		while i < len(vlines_white):
-			if vlines_white[i].thickness < w / 60 :
+			if vlines_white[i].thickness < w / (__density // 15) :
 				vlines_white.remove(vlines_white[i])
 			else:
 				i += 1
@@ -476,8 +649,49 @@ def processImage(imageFile, autoFind=True):
 		except ValueError:
 			vlines.append(Line(w-1,0,w-1,h-1,"white"))
 
-		OCR(im, hlines, vlines, imageFile)
+		name = OCR(im, hlines, vlines, imageFile)
+		name = name + '.csv'
+		while True:
+			if input("Continue?[Y/N]: ") in {'N', 'n'}: break 
+			subprocess.run('libreoffice ' + name, shell = True)
+		
+			with open(name, "r") as data_file:
+				text = data_file.read()
+				data_file.close()
+
+			text_arr = text.split('\n')
+			text_arr = [line.split(',') for line in text_arr]
+		
+			try:
+
+				if not text_arr[0][0].startswith('#'):
+					text_arr[0][0] = '#' + text_arr[0][0]
 			
+				text_arr = convert_jd(text_arr)
+				t = convert_line_bands(text_arr[1], text_arr[0])
+				output_text = [t[1]] + t[0]
+				
+				if not output_text[0][0].startswith('#'):
+					output_text[0][0] = '#' + output_text[0][0]
+				
+				for i in range(2, len(text_arr)):
+					line = text_arr[i] 
+					try:
+						output_text += convert_line_bands(line, text_arr[0])[0]
+					except:
+						output_text.append(line)
+				if output_text[-1] == ['']: output_text = output_text[:-1]
+				
+				output_text = '\n'.join([','.join(line) for line in output_text])
+				with open(name, "w") as data_file:
+					data_file.write(output_text)
+					data_file.close()
+			except Exception as e:
+				print("Failed post processing for " + name)
+				continue
+			else:
+				break
+	return
 
 def workerTask(q):
 	global auto
@@ -505,6 +719,8 @@ for i in range(num_threads):
 q.join()
 for thread in threads:
 	thread.join()
+
+
 
 for filename in os.listdir("__working"):	
 	os.remove("__working/" + filename)
